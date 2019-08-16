@@ -1,0 +1,6 @@
+---
+- name: kafka playbook
+  hosts:
+    - client
+  roles:
+    - kafka_client

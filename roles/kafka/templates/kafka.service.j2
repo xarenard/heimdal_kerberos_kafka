@@ -1,0 +1,14 @@
+[Unit]
+Requires=zookeeper.service
+After=zookeeper.service
+
+[Service]
+Type=simple
+User=kafka
+Environment='KAFKA_OPTS=-Djava.security.auth.login.config={{kafka_directory}}/kerberos/kafka_server_jaas.conf -Djava.security.krb5.conf=/etc/krb5.conf -Dsun.security.krb5.debug=true'
+ExecStart=/bin/sh -c '{{kafka_directory}}/bin/kafka-server-start.sh {{kafka_directory}}/config/server.properties > {{kafka_directory}}/logs/kafka.log 2>&1'
+ExecStop={{kafka_directory}}/bin/kafka-server-stop.sh
+Restart=on-abnormal
+
+[Install]
+WantedBy=multi-user.target

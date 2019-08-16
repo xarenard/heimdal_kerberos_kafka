@@ -1,0 +1,87 @@
+---
+
+- name: create  kafka group
+  group: name="{{ kafka_group }}" state="present"
+  tags:
+    - kafka_client
+
+- name: Create kafka user
+  user: name="{{ kafka_user }}" password = "{{ 'password' | password_hash('sha512') }}" group="{{ kafka_group }}"
+  tags:
+    - kafka_client
+
+- name: download kafka binary
+  get_url: url="https://www.apache.org/dist/kafka/2.1.1/{{kafka_package_name}}.{{kafka_package_format}}" dest=/tmp
+
+- name: Unzip kafka
+  unarchive: copy="no" src="/tmp/{{kafka_package_name}}.{{kafka_package_format}}" dest="/usr/local" owner="{{ kafka_user }}" group="{{ kafka_group }}"
+  tags:
+    - kafka_client
+
+- name: Create symbolic link
+  file:
+    src: "/usr/local/{{kafka_package_name}}"
+    dest: "{{ kafka_directory }}"
+    state: link
+
+- name: create directory for keytab and jaas
+  file:
+    path: "{{kafka_directory}}/kerberos"
+    state: directory
+
+- name: Copy kafka jaas file
+  template: src="kafka_client_jaas.conf.j2"  dest="{{kafka_directory}}/kerberos/kafka_client_jaas.conf" owner="{{kafka_user}}" group="{{kafka_group}}"
+  tags:
+    - kafka_client
+
+- name: Copy kafka producer file
+  template: src="producer.properties.j2"  dest="/home/{{kafka_user}}/producer.properties" owner="{{kafka_user}}" group="{{kafka_group}}"
+  tags:
+    - kafka_client
+
+- name: Copy kafka producer file
+  template: src="consumer.properties.j2"  dest="/home/{{kafka_user}}/consumer.properties" owner="{{kafka_user}}" group="{{kafka_group}}"
+  tags:
+    - kafka_client
+
+- name: Copy kafka producer bash file
+  template: src="producer.sh.j2"  dest="/home/{{kafka_user}}/producer.sh" owner="{{kafka_user}}" group="{{kafka_group}}" mode="0755"
+  tags:
+    - kafka_client
+
+- name: Copy kafka consumer bash file
+  template: src="consumer.sh.j2"  dest="/home/{{kafka_user}}/consumer.sh" owner="{{kafka_user}}" group="{{kafka_group}}" mode="0755"
+  tags:
+    - kafka_client
+
+- debug:
+    msg: "{{kafka_temp_client_keytab_location}}"
+
+- name: Create Kafka Service keytab
+  shell: |
+    set timeout -1
+    spawn  kadmin -p {{k_admin_user}}
+    match_max 100000
+    expect -exact "kadmin> "
+    send -- "ext_keytab -k {{kafka_temp_client_keytab_location}} kafka/client.{{domain_name}}\r"
+    expect -exact "ext_keytab -k {{kafka_temp_client_keytab_location}} kafka/client.{{domain_name}}\r
+    {{k_admin_user}}@{{domain_name|upper}}'s Password: "
+    send -- "{{k_admin_pwd}}\r"
+    expect -exact "\r
+    kadmin> "
+    send -- "exit\r"
+    expect eof
+  args:
+   executable: expect
+  tags:
+    - kafka_client
+
+- name: Move keytab file
+  command: "mv {{kafka_temp_client_keytab_location}} {{kafka_directory}}/kerberos/kafka.client.keytab"
+
+- name: Change keytab owner
+  file:
+    path: "{{kafka_directory}}/kerberos/kafka.client.keytab"
+    owner: kafka
+    group: kafka
+    mode: 0600

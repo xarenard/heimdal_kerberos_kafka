@@ -1,0 +1,2 @@
+kafka_temp_keytab_location: /home/{{ansible_user}}/kafka.keytab
+kafka_keytab_location: "{{kafka_directory}}/kerberos/kafka.service.keytab"

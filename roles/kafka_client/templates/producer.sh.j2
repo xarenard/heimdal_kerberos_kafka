@@ -1,0 +1,2 @@
+export KAFKA_OPTS="-Djava.security.krb5.conf=/etc/krb5.conf -Djava.security.auth.login.config={{kafka_directory}}/kerberos/kafka_client_jaas.conf -Dsun.security.krb5.debug=true"
+{{kafka_directory}}/bin/kafka-console-producer.sh --broker-list service.{{domain_name}}:{{kafka_sasl_plaintext_port}} --topic test1 --producer.config /home/{{kafka_user}}/producer.properties

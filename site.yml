@@ -1,0 +1,11 @@
+---
+- include: python.yml
+- include: common.yml
+- include: network.yml
+- include: bind.yml
+- include: kdc.yml
+- include: jre.yml
+- include: kafka.yml
+- include: kafka_client.yml
+
+

@@ -1,0 +1,95 @@
+---
+
+- name: create  kafka group
+  group: name="{{ kafka_group }}" state="present"
+  tags:
+    - kafka
+
+- name: Create kafka user
+  user: name="{{ kafka_user }}" password = "{{ 'password' | password_hash('sha512') }}" group="{{ kafka_group }}"
+  tags:
+    - kafka
+
+- name: Download kafka binary
+  get_url: url="https://www.apache.org/dist/kafka/2.1.1/{{kafka_package_name}}.{{kafka_package_format}}" dest=/tmp
+
+- name: Unzip kafka
+  unarchive: copy="no" src="/tmp/{{kafka_package_name}}.{{kafka_package_format}}" dest="/usr/local" owner="{{ kafka_user }}" group="{{ kafka_group }}"
+  tags:
+    - kafka
+
+- name: Create symbolic link
+  file:
+    src: "/usr/local/{{kafka_package_name}}"
+    dest: "{{ kafka_directory }}"
+    state: link
+
+- name: Copy zookeeper systemd file
+  template: src="templates/zookeeper.service.j2"  dest="/etc/systemd/system/zookeeper.service" owner="root" group="root" mode=0644
+  tags:
+    - kafka
+
+- name: Create directory for keytab and jaas
+  file:
+    path: "{{kafka_directory}}/kerberos"
+    state: directory
+
+- name: Copy kafka systemd file
+  template: src="templates/kafka.service.j2"  dest="/etc/systemd/system/kafka.service" owner="root" group="root" mode=0644
+  tags:
+    - kafka
+
+- name: Copy kafka jaas file
+  template: src="kafka_server_jaas.conf.j2"  dest="{{ kafka_directory}}/kerberos/kafka_server_jaas.conf" owner="{{kafka_user}}" group="{{kafka_group}}" mode=0644
+  tags:
+    - kafka
+
+- name: Copy kafka server properties file
+  template: src="server.properties.j2"  dest="{{ kafka_directory}}/config/server.properties" owner="{{kafka_user}}" group="{{kafka_group}}" mode=0644
+  tags:
+    - kafka
+
+- name: Create Kafka Service keytab
+  shell: |
+    set timeout -1
+    spawn  kadmin -p {{k_admin_user}}
+    match_max 100000
+    expect -exact "kadmin> "
+    send -- "ext_keytab -k {{kafka_temp_keytab_location}} kafka/service.{{domain_name}}\r"
+    expect -exact "ext_keytab -k {{kafka_temp_keytab_location}} kafka/service.{{domain_name}}\r
+    {{k_admin_user}}@{{domain_name|upper}}'s Password: "
+    send -- "{{k_admin_pwd}}\r"
+    expect -exact "\r
+    kadmin> "
+    send -- "exit\r"
+    expect eof
+  args:
+   executable: expect
+  tags:
+    - kafka
+
+- name: Move keytab
+  command: "mv {{kafka_temp_keytab_location}} {{kafka_keytab_location}}"
+
+- name: Change keytab permissions
+  file: path="{{ kafka_keytab_location }}" owner="{{ kafka_user }}" mode="0644"
+  tags:
+    - kafka
+
+- name: Enable service for zookeeper
+  systemd:
+    name: zookeeper
+    enabled: yes
+    masked: no
+
+- name: Make sure zookeeper is running
+  systemd: state=started name=zookeeper
+
+- name: Enable service for kafka
+  systemd:
+    name: kafka
+    enabled: yes
+    masked: no
+
+- name: Make sure kafka is running
+  systemd: state=started name=kafka

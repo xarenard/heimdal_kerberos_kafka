@@ -1,0 +1,7 @@
+---
+- name: jre playbook
+  hosts:
+    - service
+    - client
+  roles:
+    - jre

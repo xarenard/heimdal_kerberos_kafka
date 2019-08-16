@@ -1,0 +1,1 @@
+kafka_temp_client_keytab_location: /home/{{ansible_user}}/kafka.keytab

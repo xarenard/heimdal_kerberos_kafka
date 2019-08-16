@@ -1,0 +1,6 @@
+---
+- name: kafka playbook
+  hosts:
+    - service
+  roles:
+    - kafka
